@@ -1,0 +1,3 @@
+killall waybar
+waybar -c ~/.config/waybar/config_top.jsonc -s ~/.config/waybar/style_top.css & disown
+waybar -c ~/.config/waybar/config_bottom.jsonc -s ~/.config/waybar/style_bottom.css & disown

@@ -1,0 +1,2 @@
+alacritty -e zsh -c "cd ~/personal/quark1/src/; source ~/personal/quark1/bin/activate; exec zsh" &
+alacritty -e zsh -c "cd ~/personal/quark1/src/; vim; exec zsh" &

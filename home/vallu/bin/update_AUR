@@ -1,0 +1,97 @@
+#!/bin/bash
+
+ask() {
+    local ans
+    read -r -p "$1 (Y/n) " ans
+    ans=${ans,,}
+    echo "${ans:-y}"
+}
+
+if ! curl -s --head --request GET https://www.google.com --max-time 5 > /dev/null; then
+    echo "Connect to the internet, dumbass"
+    exit 1
+fi
+
+echo "BEHOLD! THE GREATEST SCRIPT TO EVER GRACE THIS PLANET IS HERE!"
+
+for i in ~/AUR_dls/*
+do
+    [ -d "$i" ] || continue
+    cd "$i" || continue
+
+    pkg=$(basename "$i")
+    pulled_but_no_update=0
+    old_rev=$(git rev-parse HEAD)
+    git fetch --quiet
+    new_rev=$(git rev-parse @{u})
+
+    # Is the local repo up to date?
+    if [[ "$old_rev" == "$new_rev" ]]
+    then
+        # Is the installed package and local repo of the same version?
+        installed=$(pacman -Q "$pkg" 2>/dev/null | awk '{print $2}')
+        pkgver_full=$(makepkg --printsrcinfo | awk '
+            $1=="pkgver" {v=$3}
+            $1=="pkgrel" {r=$3}
+            END {print v "-" r}
+        ')
+
+        if [[ "$installed" == "$pkgver_full" ]]
+        then
+            echo "$pkg: skipping: up to date"
+            continue
+        fi
+
+        pulled_but_no_update=1
+    fi
+
+    # Already pulled, but not upgraded
+    if [[ "$pulled_but_no_update" == "1" ]]
+    then
+        echo "$pkg: pulled but not updated"
+
+        # Install the damn package
+        confirm=$(ask "$pkg: build and install?")
+
+        if [[ "$confirm" =~ ^(yes|y)$ ]]
+        then
+            makepkg -si
+        elif [[ "$confirm" =~ ^(no|n)$ ]]
+        then
+            echo "$pkg: skipping: declined"
+        else
+            echo "$pkg: skipping: invalid"
+        fi
+    # Not pulled, upgrade available
+    else
+        echo "$pkg: updates available"
+
+        # Show diff
+        show_diff=$(ask "$pkg: show diff?")
+
+        if [[ "$show_diff" =~ ^(yes|y)$ ]]
+        then
+            git diff HEAD @{u}
+        elif [[ "$show_diff" =~ ^(no|n)$ ]]
+        then
+            :
+        else
+            echo "$pkg: show diff: invalid"
+        fi
+
+        # Pull and install package
+        confirm=$(ask "$pkg: pull, build and install?")
+
+        if [[ "$confirm" =~ ^(yes|y)$ ]]
+        then
+            git reset --hard @{u}
+            git clean -fd
+            makepkg -si
+        elif [[ "$confirm" =~ ^(no|n)$ ]]
+        then
+            echo "$pkg: skipping: declined"
+        else
+            echo "$pkg: skipping: invalid"
+        fi
+    fi
+done
